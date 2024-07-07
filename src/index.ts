@@ -1,4 +1,4 @@
-import * as vscode from "vscode";
+import * as vscode from "coc.nvim";
 import { EditProvider } from "./EditProvider";
 import unibeautify, { LanguageOptionValues } from "unibeautify";
 import { beautifiers } from "./beautifiers";
