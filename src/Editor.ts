@@ -1,4 +1,4 @@
-import * as vscode from "vscode";
+import * as vscode from "coc.nvim";
 
 export class Editor {
   constructor(private textEditor: vscode.TextEditor) {}
@@ -17,7 +17,7 @@ export class Editor {
   }
 
   get document(): vscode.TextDocument | undefined {
-    return this.textEditor.document;
+    return this.textEditor.document.textDocument;
   }
 
   get text(): string | undefined {
@@ -28,17 +28,17 @@ export class Editor {
   }
 
   public setText(newText: string, range: vscode.Range = this.fullRange) {
-    return this.textEditor.edit(editBuilder =>
-      editBuilder.replace(range, newText)
-    );
+    return vscode.TextEdit.replace(range, newText);
   }
 
   get fullRange(): vscode.Range {
     if (this.document) {
-      return this.document.validateRange(
-        new vscode.Range(0, 0, Number.MAX_VALUE, Number.MAX_VALUE)
+      const entire = this.document.getText();
+      return vscode.Range.create(
+        this.document.positionAt(0),
+        this.document.positionAt(entire.length),
       );
     }
-    return new vscode.Range(0, 0, 0, 0);
+    return vscode.Range.create(0, 0, 0, 0);
   }
 }

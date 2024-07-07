@@ -88,7 +88,7 @@
     "prettydiff2": "^2.2.8",
     "stylelint": "^9.7.1",
     "tslint": "^5.20.1",
-    "typescript": "3.8.3",
+    "typescript": "5.5.3",
     "unibeautify": "^0.17.0"
   },
   "contributes": {
@@ -105,6 +105,11 @@
           "type": "string",
           "default": null,
           "description": "The absolute path to a fallback configuration file, when Unibeautify doesn‘t find a .unibeautifyrc in your workspace directory."
+        },
+        "unibeautify.priority": {
+          "type": "number",
+          "default": 1,
+          "description": "The priority of the Unibeautify formatter. Higher priority means it will be used first."
         }
       }
     }

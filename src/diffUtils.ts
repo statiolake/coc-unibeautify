@@ -3,14 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------*/
 
-import {
-  Position,
-  Range,
-  TextEdit,
-  Uri,
-  WorkspaceEdit,
-  TextEditorEdit,
-} from "vscode";
+import { Position, Range, TextEdit, Uri, WorkspaceEdit } from "coc.nvim";
 import * as jsDiff from "diff";
 
 export enum EditTypes {
@@ -38,51 +31,45 @@ export class Edit {
         return TextEdit.insert(this.start, this.text);
 
       case EditTypes.EDIT_DELETE:
-        return TextEdit.delete(new Range(this.start, this.end));
+        return TextEdit.del(Range.create(this.start, this.end));
 
       case EditTypes.EDIT_REPLACE:
-        return TextEdit.replace(new Range(this.start, this.end), this.text);
-    }
-  }
-
-  // Applies Edit using given TextEditorEdit
-  public applyUsingTextEditorEdit(editBuilder: TextEditorEdit): void {
-    switch (this.action) {
-      case EditTypes.EDIT_INSERT:
-        editBuilder.insert(this.start, this.text);
-        break;
-
-      case EditTypes.EDIT_DELETE:
-        editBuilder.delete(new Range(this.start, this.end));
-        break;
-
-      case EditTypes.EDIT_REPLACE:
-        editBuilder.replace(new Range(this.start, this.end), this.text);
-        break;
+        return TextEdit.replace(Range.create(this.start, this.end), this.text);
     }
   }
 
   // Applies Edits to given WorkspaceEdit
   public applyUsingWorkspaceEdit(
     workspaceEdit: WorkspaceEdit,
-    fileUri: Uri
+    fileUri: Uri,
   ): void {
+    if (workspaceEdit.changes === undefined) workspaceEdit.changes = {};
+    if (workspaceEdit.changes[fileUri.toString()] === undefined) {
+      workspaceEdit.changes[fileUri.toString()] = [];
+    }
+    const changes = workspaceEdit.changes[fileUri.toString()];
+
     switch (this.action) {
-      case EditTypes.EDIT_INSERT:
-        workspaceEdit.insert(fileUri, this.start, this.text);
+      case EditTypes.EDIT_INSERT: {
+        const edit = TextEdit.insert(this.start, this.text);
+        changes.push(edit);
         break;
+      }
 
-      case EditTypes.EDIT_DELETE:
-        workspaceEdit.delete(fileUri, new Range(this.start, this.end));
+      case EditTypes.EDIT_DELETE: {
+        const edit = TextEdit.del(Range.create(this.start, this.end));
+        changes.push(edit);
         break;
+      }
 
-      case EditTypes.EDIT_REPLACE:
-        workspaceEdit.replace(
-          fileUri,
-          new Range(this.start, this.end),
-          this.text
+      case EditTypes.EDIT_REPLACE: {
+        const edit = TextEdit.replace(
+          Range.create(this.start, this.end),
+          this.text,
         );
+        changes.push(edit);
         break;
+      }
     }
   }
 }
@@ -106,23 +93,23 @@ function parseUniDiffs(diffOutput: jsDiff.ParsedDiff[]): FilePatch[] {
     const edits: Edit[] = [];
     uniDiff.hunks.forEach((hunk: jsDiff.Hunk) => {
       let startLine = hunk.oldStart;
-      hunk.lines.forEach(line => {
+      hunk.lines.forEach((line) => {
         switch (line.substr(0, 1)) {
           case "-":
             if (edit == null) {
               edit = new Edit(
                 EditTypes.EDIT_DELETE,
-                new Position(startLine - 1, 0)
+                Position.create(startLine - 1, 0),
               );
             }
-            edit.end = new Position(startLine, 0);
+            edit.end = Position.create(startLine, 0);
             startLine++;
             break;
           case "+":
             if (edit == null) {
               edit = new Edit(
                 EditTypes.EDIT_INSERT,
-                new Position(startLine - 1, 0)
+                Position.create(startLine - 1, 0),
               );
             } else if (edit.action === EditTypes.EDIT_DELETE) {
               edit.action = EditTypes.EDIT_REPLACE;
@@ -167,7 +154,7 @@ function getEdits(fileName: string, oldStr: string, newStr: string): FilePatch {
     isWindows ? oldStr.split("\r\n").join("\n") : oldStr,
     isWindows ? newStr.split("\r\n").join("\n") : newStr,
     "",
-    ""
+    "",
   );
   const filePatches: FilePatch[] = parseUniDiffs([unifiedDiffs]);
   return filePatches[0];
@@ -176,23 +163,29 @@ function getEdits(fileName: string, oldStr: string, newStr: string): FilePatch {
 export function getTextEdits(oldStr: string, newStr: string): TextEdit[] {
   const filename = "undefined";
   const filePatch = getEdits(filename, oldStr, newStr);
-  return filePatch.edits.map(edit => edit.apply()).filter(notEmpty);
+  return filePatch.edits.map((edit) => edit.apply()).filter(notEmpty);
 }
 
 export function translateTextEdits(
   textEdits: TextEdit[],
-  offset: Range
+  offset: Range,
 ): TextEdit[] {
-  return textEdits.map(edit => {
+  return textEdits.map((edit) => {
     const range = translateRange(edit.range, offset.start);
-    return new TextEdit(range, edit.newText);
+    return TextEdit.replace(range, edit.newText);
   });
 }
 
 export function translateRange(range: Range, offset: Position): Range {
-  const start = range.start.translate(offset.line, offset.character);
-  const end = range.end.translate(offset.line, offset.character);
-  return new Range(start, end);
+  const start = Position.create(
+    range.start.line + offset.line,
+    range.start.character + offset.character,
+  );
+  const end = Position.create(
+    range.end.line + offset.line,
+    range.end.character + offset.character,
+  );
+  return Range.create(start, end);
 }
 
 function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {

@@ -1,13 +1,17 @@
-import * as vscode from "vscode";
+import * as vscode from "coc.nvim";
+import cosmiconfig, {
+  Config,
+  CosmiconfigResult,
+  ExplorerOptions,
+} from "cosmiconfig";
+import { extname } from "path";
 import unibeautify, {
-  LanguageOptionValues,
   BeautifyData,
   Language,
+  LanguageOptionValues,
 } from "unibeautify";
-import { UnibeautifyVSCodeSettings } from "./index";
 import { getTextEdits, translateTextEdits } from "./diffUtils";
-import { extname } from "path";
-import cosmiconfig, { ExplorerOptions, CosmiconfigResult } from "cosmiconfig";
+import { UnibeautifyVSCodeSettings } from "./index";
 
 export class EditProvider
   implements
@@ -16,19 +20,21 @@ export class EditProvider
   public provideDocumentFormattingEdits(
     document: vscode.TextDocument,
     options: vscode.FormattingOptions,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): PromiseLike<vscode.TextEdit[]> {
     return this.provideDocumentRangeFormattingEdits(
       document,
       this.fullRange(document),
       options,
-      token
+      token,
     );
   }
 
   private fullRange(document: vscode.TextDocument): vscode.Range {
-    return document.validateRange(
-      new vscode.Range(0, 0, Number.MAX_VALUE, Number.MAX_VALUE)
+    const entire = document.getText();
+    return vscode.Range.create(
+      document.positionAt(0),
+      document.positionAt(entire.length),
     );
   }
 
@@ -37,13 +43,13 @@ export class EditProvider
     document: vscode.TextDocument,
     range: vscode.Range,
     options: vscode.FormattingOptions,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): PromiseLike<vscode.TextEdit[]> {
     const text: string = document.getText(range);
     return this.beautifyRange({ document, range, options, token })
       .then((newText: string) => getTextEdits(text, newText))
-      .then(textEdits => translateTextEdits(textEdits, range))
-      .catch(error => {
+      .then((textEdits) => translateTextEdits(textEdits, range))
+      .catch((error) => {
         console.error(error);
         return Promise.reject(error);
       });
@@ -63,30 +69,31 @@ export class EditProvider
     console.log("FormattingOptions", options);
     const text: string = document.getText(range);
     const fileExtension = this.fileExtensionForDocument(document);
-    const filePath = document.fileName;
+    const filePath = vscode.Uri.parse(document.uri).fsPath;
     const projectPath = vscode.workspace.rootPath;
     return EditProvider.beautifyOptions(filePath || projectPath).then(
-      beautifyOptions => {
+      (beautifyOptions) => {
         const languageName = this.languageNameForDocument(document);
         const beautifyData: BeautifyData = {
           fileExtension,
           filePath,
           languageName,
+          // @ts-ignore
           options: beautifyOptions,
           projectPath,
           text,
         };
         console.log("beautifyData", beautifyData);
-        return unibeautify.beautify(beautifyData).catch(error => {
+        return unibeautify.beautify(beautifyData).catch((error) => {
           console.error(error);
           return Promise.reject(error);
         });
-      }
+      },
     );
   }
 
   private languageNameForDocument(
-    document: vscode.TextDocument
+    document: vscode.TextDocument,
   ): string | undefined {
     const languages = this.languagesForDocument(document);
     if (languages.length === 0) {
@@ -100,9 +107,9 @@ export class EditProvider
   }
 
   private fileExtensionForDocument(
-    document: vscode.TextDocument
+    document: vscode.TextDocument,
   ): string | undefined {
-    const { fileName } = document;
+    const fileName = vscode.Uri.parse(document.uri).fsPath;
     if (fileName) {
       return `.${extname(fileName).slice(1)}`;
     }
@@ -110,8 +117,8 @@ export class EditProvider
   }
 
   public static beautifyOptions(
-    searchStartPath: string | undefined = vscode.workspace.rootPath
-  ): Promise<LanguageOptionValues> {
+    searchStartPath: string | undefined = vscode.workspace.rootPath,
+  ): Promise<LanguageOptionValues | Config | null> {
     try {
       const vscodeSettings: UnibeautifyVSCodeSettings = <any>(
         vscode.workspace.getConfiguration("unibeautify")
@@ -134,17 +141,16 @@ export class EditProvider
           if (defaultConfigFile) {
             return explorer
               .load(defaultConfigFile)
-              .then(
-                (resultByFile: CosmiconfigResult) =>
-                  resultByFile ? resultByFile.config : null
+              .then((resultByFile: CosmiconfigResult) =>
+                resultByFile ? resultByFile.config : null,
               )
-              .catch(error => {
+              .catch((error) => {
                 vscode.window.showErrorMessage(
                   `We could not find your default config file: \n
                   ${defaultConfigFile} \n
                   Please correct your path, create a config in your
                   workspace or set the default to ‘null‘, otherwise
-                  the plugin will not work!`
+                  the plugin will not work!`,
                 );
                 throw error;
               });

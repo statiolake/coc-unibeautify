@@ -1,6 +1,6 @@
 import * as vscode from "coc.nvim";
-import { EditProvider } from "./EditProvider";
 import unibeautify, { LanguageOptionValues } from "unibeautify";
+import { EditProvider } from "./EditProvider";
 import { beautifiers } from "./beautifiers";
 
 export function activate(context: vscode.ExtensionContext) {
@@ -14,22 +14,23 @@ export function activate(context: vscode.ExtensionContext) {
     (options: LanguageOptionValues) => {
       console.log("Supported languages", supportedLanguages);
       const enabledLanguages = supportedLanguages.filter(
-        lang => options[lang.name] !== false
+        // @ts-ignore
+        (lang) => options[lang.name] !== false,
       );
       console.log("Options", options);
       console.log("Enabled languages", enabledLanguages);
       const languageFilters: vscode.DocumentFilter[] = enabledLanguages.reduce(
         (filters, { vscodeLanguages = [] }) => {
           const languages: vscode.DocumentFilter[] = vscodeLanguages.map(
-            language => ({ language, scheme: "file" })
+            (language) => ({ language, scheme: "file" }),
           );
           return [...filters, ...languages];
         },
-        [] as vscode.DocumentFilter[]
+        [] as vscode.DocumentFilter[],
       );
       const patternFilters: vscode.DocumentFilter[] = enabledLanguages
-        .filter(language => language.extensions.length > 0)
-        .map(language => ({
+        .filter((language) => language.extensions.length > 0)
+        .map((language) => ({
           pattern: `**/*{${language.extensions.join(",")}}`,
           scheme: "file",
         }));
@@ -38,18 +39,22 @@ export function activate(context: vscode.ExtensionContext) {
         ...patternFilters,
       ];
       console.log("Unibeautify documentSelector", documentSelector);
+      const priority = vscodeSettings().priority;
+      console.log("Unibeautify priority", priority);
       const editProvider = new EditProvider();
       context.subscriptions.push(
-        vscode.languages.registerDocumentFormattingEditProvider(
+        vscode.languages.registerDocumentFormatProvider(
           documentSelector,
-          editProvider
+          editProvider,
+          priority,
         ),
-        vscode.languages.registerDocumentRangeFormattingEditProvider(
+        vscode.languages.registerDocumentRangeFormatProvider(
           documentSelector,
-          editProvider
-        )
+          editProvider,
+          priority,
+        ),
       );
-    }
+    },
   );
 }
 
@@ -65,6 +70,7 @@ function vscodeSettings(): UnibeautifyVSCodeSettings {
 }
 
 export interface UnibeautifyVSCodeSettings {
+  priority: number;
   defaultConfig: string | null;
   enabled: boolean;
 }

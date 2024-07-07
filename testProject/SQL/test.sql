@@ -1,1 +1,0 @@
-select * from table1 join table2 on table1.id = table2.id where table1.name = "test"

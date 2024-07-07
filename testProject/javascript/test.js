@@ -1,9 +1,0 @@
-
-
-
-
-function hello() {
-return "world";
-}
-
-
