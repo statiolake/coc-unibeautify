@@ -1,10 +1,13 @@
 {
   "name": "@statiolake/coc-unibeautify",
   "displayName": "Unibeautify - Universal Formatter",
-  "version": "0.8.2",
+  "version": "0.8.2-rc.2",
   "description": "Unibeautify (Universal Code Formatter) for Visual Studio Code",
   "preview": true,
   "main": "index.js",
+  "files": [
+    "out/"
+  ],
   "icon": "images/icon.png",
   "activationEvents": [
     "*"
@@ -14,7 +17,8 @@
     "dev": "npm run clean && tsc --watch",
     "clean": "rimraf out/",
     "update-readme": "node out/scripts/update-readme",
-    "lint": "tslint -c tslint.json --format verbose 'src/**/*.ts'"
+    "lint": "tslint -c tslint.json --format verbose 'src/**/*.ts'",
+    "prepare": "npm run clean && tsc"
   },
   "repository": {
     "type": "git",
